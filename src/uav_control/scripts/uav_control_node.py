@@ -10,34 +10,35 @@ import random
 class UAV:
 	def __init__(self) -> None:
 		
-		self.current_state = State()
-
 		rospy.init_node("uav_control_node_py")
 
-		self.state_sub = rospy.Subscriber("mavros/state", State, callback = self.state_cb)
+		self.current_state = State()
+		self.state_sub = rospy.Subscriber("uav/mavros/state", State, callback = self.state_cb)
 
-		self.local_pos_pub = rospy.Publisher("mavros/setpoint_position/local", PoseStamped, queue_size=10)
+		self.local_pos_pub = rospy.Publisher("uav/mavros/setpoint_position/local", PoseStamped, queue_size=10)
 		
-		rospy.wait_for_service("/mavros/cmd/arming")
-		self.arming_client = rospy.ServiceProxy("mavros/cmd/arming", CommandBool)    
+		rospy.wait_for_service("/uav/mavros/cmd/arming")
+		self.arming_client = rospy.ServiceProxy("uav/mavros/cmd/arming", CommandBool)    
 		self.arm_cmd = CommandBoolRequest()
 
-		rospy.wait_for_service("/mavros/set_mode")
-		self.set_mode_client = rospy.ServiceProxy("mavros/set_mode", SetMode)
-		# Landing service
-		self.landing_cl = rospy.ServiceProxy('/mavros/cmd/land', CommandTOL)
-		# Takeoff service 
-		self.takeoff_cl = rospy.ServiceProxy('/mavros/cmd/takeoff', CommandTOL)
-
 		# Mode service
+		rospy.wait_for_service("/uav/mavros/set_mode")
+		self.set_mode_client = rospy.ServiceProxy("uav/mavros/set_mode", SetMode)
 		self.offb_set_mode = SetModeRequest()
 		self.offb_set_mode.custom_mode = 'OFFBOARD'
 
+		# Landing service
+		self.landing_client = rospy.ServiceProxy('/uav/mavros/cmd/land', CommandTOL)
+		
+		# Takeoff service 
+		self.takeoff_client = rospy.ServiceProxy('/uav/mavros/cmd/takeoff', CommandTOL)
+
 		# Setpoint publishing MUST be faster than 2Hz
-		self.rate = rospy.rate(20)
+		self.rate = rospy.Rate(20)
 
 		# Wait for Flight Controller connection
 		while(not rospy.is_shutdown() and not self.current_state.connected):
+			print("Wait for Flight Controller connection")
 			self.rate.sleep()
 
 		# message type [?afak?]
@@ -45,7 +46,6 @@ class UAV:
 
 		# 
 		self.last_req = rospy.Time.now()
-
 
 		# 
 		self.check()
@@ -67,32 +67,51 @@ class UAV:
 				self.last_req = rospy.Time.now()
 
 	def state_cb(self, msg):
-		self.current_state
+		print("state callback fn")
 		self.current_state = msg
+		return
 
 	def arm(self, state_arm = True):
 		if state_arm:
+			print ("Arm")
 			self.arm_cmd.value = True
+			#  loop untill armed
+			while(not self.arming_client.call(self.arm_cmd).success and not rospy.is_shutdown()):
+				self.rate.sleep()
+
 			if(self.arming_client.call(self.arm_cmd).success == True):
 				rospy.loginfo("Vehicle armed")
+		else:
+			print ("Disarm")
+			self.arm_cmd.value = False
+			#  loop untill disarmed
+			while(not self.arming_client.call(self.arm_cmd).success and not rospy.is_shutdown()):
+				self.rate.sleep()
+
+			if(self.arming_client.call(self.arm_cmd).success == True):
+				rospy.loginfo("Vehicle disarmed")
 		return
 
 	def take_off(self, altitude=10, latitude=0, longitude=0, min_pitch=0, yaw=0):
 		print ("Taking off")
-		rospy.wait_for_service('/mavros/cmd/takeoff')
+		rospy.wait_for_service('/uav/mavros/cmd/takeoff')
 		try:
-			response = self.takeoff_cl(altitude, latitude, longitude, min_pitch, yaw)
+			response = self.takeoff_client(altitude, latitude, longitude, min_pitch, yaw)
 			rospy.loginfo(response)
 		except rospy.ServiceException as e:
 			print(f"Takeoff failed: {e}")
 
+		# TODO Wait untill 98% of take_off altitude is reached
+ 		# while(check_altitude<=0.98*altitude and not rospy.is_shutdown()):
+		# 	self.rate.sleep()
+		
 		return
 
 	def land(self, altitude=0, latitude=0, longitude=0, min_pitch=0, yaw=0):
 		print ("Landing")
-		rospy.wait_for_service('/mavros/cmd/land')
+		rospy.wait_for_service('/uav/mavros/cmd/land')
 		try:
-			response = self.landing_cl(altitude, latitude, longitude, min_pitch, yaw)
+			response = self.landing_client(altitude, latitude, longitude, min_pitch, yaw)
 			rospy.loginfo(response)
 		except rospy.ServiceException as e:
 			print(f"Takeoff failed: {e}")
@@ -100,6 +119,7 @@ class UAV:
 		return
 
 	def go_to(self, x: float, y: float, z: float):
+		print (f"go_to {x}, {y}, {z}")
 
 		self.pose.pose.position.x = x
 		self.pose.pose.position.y = y
@@ -115,6 +135,9 @@ class UAV:
 
 		self.check()
 		self.local_pos_pub.publish(self.pose)
+
+		for _ in range(20):
+			self.rate.sleep()
 
 		return
 		
@@ -135,7 +158,7 @@ if __name__ == "__main__":
 	
 	if not rospy.is_shutdown():
 		uav.check()
-		uav.arm()
+		uav.arm(True)
 		uav.take_off()
 	else:
 		print("master not running | Exiting")
@@ -146,7 +169,9 @@ if __name__ == "__main__":
 		count+=1
 
 		uav.check()
-		state, x,y,z = call_a_fn_to_get_xyz(count)
+
+		# TODO : replace with call to coordinator fn that returns -> status, x,y,z 
+		status, x,y,z = call_a_fn_to_get_xyz(count)
 		
 		if status == 'L':
 			break
@@ -156,6 +181,7 @@ if __name__ == "__main__":
 
 	if not rospy.is_shutdown():
 		uav.land()
+		uav.arm(False)
 	else:
 		print("master not running | Exiting")
 		exit()
