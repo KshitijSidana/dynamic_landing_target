@@ -9,6 +9,7 @@ project(uav_control)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  ground_vehicle
 )
 
 ## System dependencies are found with CMake's conventions

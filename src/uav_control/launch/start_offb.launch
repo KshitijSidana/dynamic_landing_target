@@ -60,6 +60,7 @@
 		</include>
 	</group>
 
+	<!-- TODO : Move UGV to launch file in ground vehicle package and include it here -->
 	<!-- UGV -->
     <group ns="ugv">
         <!-- MAVROS and vehicle configs -->
@@ -71,7 +72,7 @@
 			<!-- vehicle pose -->
 			<arg name="x" value="0"/>
             <arg name="y" value="5"/>
-            <arg name="z" value="1"/>
+            <arg name="z" value="0"/>
             <arg name="R" value="0"/>
             <arg name="P" value="0"/>
             <arg name="Y" value="0"/>
