@@ -39,7 +39,8 @@ class UAV:
 		# Wait for Flight Controller connection
 		while(not rospy.is_shutdown() and not self.current_state.connected):
 			print("Wait for Flight Controller connection")
-			self.rate.sleep()
+			for _ in range(10) :
+				self.rate.sleep()
 
 		# message type [?afak?]
 		self.pose = PoseStamped()
@@ -67,7 +68,7 @@ class UAV:
 				self.last_req = rospy.Time.now()
 
 	def state_cb(self, msg):
-		print("state callback fn")
+		# print("state callback fn")
 		self.current_state = msg
 		return
 
@@ -77,7 +78,8 @@ class UAV:
 			self.arm_cmd.value = True
 			#  loop untill armed
 			while(not self.arming_client.call(self.arm_cmd).success and not rospy.is_shutdown()):
-				self.rate.sleep()
+				for _ in range(10) :
+					self.rate.sleep()
 
 			if(self.arming_client.call(self.arm_cmd).success == True):
 				rospy.loginfo("Vehicle armed")
@@ -86,7 +88,8 @@ class UAV:
 			self.arm_cmd.value = False
 			#  loop untill disarmed
 			while(not self.arming_client.call(self.arm_cmd).success and not rospy.is_shutdown()):
-				self.rate.sleep()
+				for _ in range(10) :
+					self.rate.sleep()
 
 			if(self.arming_client.call(self.arm_cmd).success == True):
 				rospy.loginfo("Vehicle disarmed")
