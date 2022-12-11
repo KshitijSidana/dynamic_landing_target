@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<launch>
+    <group ns="uav">
+
+		<!-- MAVROS posix SITL environment launch script -->
+		<!-- launches MAVROS, PX4 SITL, Gazebo environment, and spawns vehicle -->
+		<!-- vehicle pose -->
+		<arg name="x" default="0"/>
+		<arg name="y" default="0"/>
+		<arg name="z" default="0"/>
+		<arg name="R" default="0"/>
+		<arg name="P" default="0"/>
+		<arg name="Y" default="0"/>
+		<!-- vehicle model and world -->
+		<arg name="est" default="ekf2"/>
+		<arg name="vehicle" default="iris"/>
+		<arg name="sdf" default="$(find mavlink_sitl_gazebo)/models/$(arg vehicle)/$(arg vehicle).sdf"/>
+    	<env name="PX4_SIM_MODEL" value="$(arg vehicle)" />
+
+		<!-- MAVROS configs -->
+		<arg name="fcu_url" default="udp://:14540@localhost:14557"/>
+		<arg name="respawn_mavros" default="false"/>
+		
+		<!-- gazebo model -->
+    	<node name="$(anon vehicle_spawn)" pkg="gazebo_ros" type="spawn_model" output="screen" args="-sdf -file $(arg sdf) -model $(arg vehicle) -x $(arg x) -y $(arg y) -z $(arg z) -R $(arg R) -P $(arg P) -Y $(arg Y)"/>
+		
+		<!-- MAVROS -->
+		<include file="$(find mavros)/launch/px4.launch">
+			<!-- GCS link is provided by SITL -->
+			<arg name="gcs_url" value=""/>
+			<arg name="fcu_url" value="$(arg fcu_url)"/>
+			<arg name="respawn_mavros" value="$(arg respawn_mavros)"/>
+		</include>
+	</group>
+
+</launch>

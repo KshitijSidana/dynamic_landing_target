@@ -22,3 +22,27 @@ roslaunch uav_control_py start_uav_control.launch
 ```
 This should fire up the simulation in Gazebo
 
+
+## Set speed
+
+reduce max speed for ugv
+```
+rosservice call /ugv/mavros/param/set "param_id: 'MPC_XY_CRUISE'
+value:
+  integer: 0
+  real: 3.0"
+```
+
+increase max speed for uav
+```
+rosservice call /uav/mavros/param/set "param_id: 'MPC_XY_VEL_ALL'
+value:
+  integer: 0
+  real: 20.0"
+```
+
+MPC_XY_CRUISE
+MPC_VEL_MANUAL
+MPC_VEL_MAN_SIDE
+
+MPC_VEL_MANUAL

@@ -4,18 +4,27 @@ import rospy
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import State
 from mavros_msgs.srv import CommandBool, CommandBoolRequest, SetMode, SetModeRequest, CommandTOL
-
+from gazebo_msgs.msg import ModelStates
+from get_traj import Coordinator
 import random
 
 class UAV:
 	def __init__(self) -> None:
 		
 		rospy.init_node("uav_control_node_py")
+		self.model_name = 'iris'
 
 		self.current_state = State()
 		self.state_sub = rospy.Subscriber("uav/mavros/state", State, callback = self.state_cb)
 
 		self.local_pos_pub = rospy.Publisher("uav/mavros/setpoint_position/local", PoseStamped, queue_size=10)
+
+		# Get current position
+		# self.local_pos_sub = rospy.Subscriber("uav/mavros/local_position/pose", PoseStamped, callback = self.set_uav_pos)
+		self.model_states = rospy.Subscriber("/gazebo/model_states", ModelStates, callback = self.set_uav_pos)
+		self.x_uav = 0.0
+		self.y_uav = 0.0
+		self.z_uav = 0.0
 		
 		rospy.wait_for_service("/uav/mavros/cmd/arming")
 		self.arming_client = rospy.ServiceProxy("uav/mavros/cmd/arming", CommandBool)    
@@ -66,11 +75,36 @@ class UAV:
 					rospy.loginfo("Vehicle armed")
 			
 				self.last_req = rospy.Time.now()
+		# while(self.current_state.mode != "OFFBOARD"):
+		# 	self.rate.sleep()
+		# 	if((rospy.Time.now() - self.last_req) > rospy.Duration(5.0)):
+		# 		if(self.set_mode_client.call(self.offb_set_mode).mode_sent == True):
+		# 			rospy.loginfo("OFFBOARD enabled")
+		# 			break		
+		# 		self.last_req = rospy.Time.now()
+		# 	else:
+		# 		if(not self.current_state.armed and (rospy.Time.now() - self.last_req) > rospy.Duration(5.0)):
+		# 			if(self.arming_client.call(self.arm_cmd).success == True):
+		# 				rospy.loginfo("Vehicle armed")
+		# 			self.last_req = rospy.Time.now()
+		
+		# if(self.current_state.mode == "OFFBOARD" and not self.current_state.armed and (rospy.Time.now() - self.last_req) > rospy.Duration(5.0)):
+		# 	if(self.arming_client.call(self.arm_cmd).success == True):
+		# 		rospy.loginfo("Vehicle armed")
+		# 	self.last_req = rospy.Time.now()
 
 	def state_cb(self, msg):
 		# print("state callback fn")
 		self.current_state = msg
 		return
+
+	def set_uav_pos(self, msg):
+		for idx, name in enumerate(msg.name):
+			if name == self.model_name:
+				break
+		self.x_uav = msg.pose[idx].position.x
+		self.y_uav = msg.pose[idx].position.y
+		self.z_uav = msg.pose[idx].position.z
 
 	def arm(self, state_arm = True):
 		if state_arm:
@@ -101,12 +135,13 @@ class UAV:
 		try:
 			response = self.takeoff_client(altitude, latitude, longitude, min_pitch, yaw)
 			rospy.loginfo(response)
+			# Wait untill take_off altitude is reached
+			while(self.z_uav<=4 and not rospy.is_shutdown()):
+				self.go_to(0,0,5)
+		
 		except rospy.ServiceException as e:
 			print(f"Takeoff failed: {e}")
 
-		# TODO Wait untill 98% of take_off altitude is reached
- 		# while(check_altitude<=0.98*altitude and not rospy.is_shutdown()):
-		# 	self.rate.sleep()
 		
 		return
 
@@ -139,8 +174,8 @@ class UAV:
 		self.check()
 		self.local_pos_pub.publish(self.pose)
 
-		for _ in range(20):
-			self.rate.sleep()
+		# for _ in range(20):
+		# 	self.rate.sleep()
 
 		return
 		
@@ -154,6 +189,7 @@ def call_a_fn_to_get_xyz(count: float):
 if __name__ == "__main__":
 	
 	uav = UAV()
+	coordinator = Coordinator()
 	uav.last_req = rospy.Time.now()
 	
 	count = 0
@@ -170,17 +206,14 @@ if __name__ == "__main__":
 	# loop runs untill ros is shut down or asked to land
 	while(not rospy.is_shutdown()):
 		count+=1
-
 		uav.check()
-
-		# TODO : replace with call to coordinator fn that returns -> status, x,y,z 
-		status, x,y,z = call_a_fn_to_get_xyz(count)
+		
+		status, x,y,z = coordinator.result()
 		
 		if status == 'L':
 			break
 
 		uav.go_to(x,y,z)	
-
 
 	if not rospy.is_shutdown():
 		uav.land()

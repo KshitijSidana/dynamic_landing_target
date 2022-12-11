@@ -10,6 +10,8 @@ project(uav_control)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   ground_vehicle
+  geometry_msgs
+  gazebo_msgs
 )
 
 ## System dependencies are found with CMake's conventions
