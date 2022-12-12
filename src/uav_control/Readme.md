@@ -1,3 +1,8 @@
+
+```
+source devel/setup.bash
+```
+
 ## Launch 
 
 It is possible that when running the script an error appears saying:
@@ -14,7 +19,7 @@ export GAZEBO_PLUGIN_PATH=$GAZEBO_PLUGIN_PATH:/usr/lib/x86_64-linux-gnu/gazebo-9
 Now in the terminal, go to the home directory and run the following command to apply the changes above to the current terminal:
 
 ```
-source .bashrc
+source ~/.bashrc
 ```
 After this step, every time you open a new terminal window you should not have to worry about this error anymore. If it appears again, a simple source .bashrc should fix it. This solution was obtained from this issue (opens new window)thread, where you can get more information about the problem.
 ```

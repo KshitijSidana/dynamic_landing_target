@@ -39,18 +39,16 @@ class Coordinator:
     #         return "F", self.x_uav+del_x, self.y_uav+del_y, res_z
     #     return     "L", self.x_uav+del_x, self.y_uav+del_y, res_z
 
-    def result(self,min_cap = -5.5, max_cap = 5.5):
-        
-
+    def result(self):
         dist = (self.x_ugv-self.x_uav)**2 + (self.y_ugv-self.y_uav)**2 
         
         result_z = max( 0, 5 - 2/(dist) )
         # res_z = max(0.5, result_z)
         prsc = 4
         # print(f"dist = {round(dist,ndigits=prsc)}, (1/dist)/10 = {round(1/(10*dist), ndigits=prsc)} dx: {round(del_x,ndigits=prsc)}, dy: {round(del_y,ndigits=prsc)}, z: {round(res_z,ndigits=prsc)}")
-        if (dist>0.015):
-            return "F", self.x_ugv, self.y_ugv, result_z
-        return     "L", self.x_ugv, self.y_ugv, result_z
+        if (dist<0.015 or self.z_uav < 1.5):
+            return "L", self.x_ugv, self.y_ugv, result_z
+        return "F", self.x_ugv, self.y_ugv, result_z
 
     def uav_pose(self, msg):
         self.x_uav = msg.pose.position.x
